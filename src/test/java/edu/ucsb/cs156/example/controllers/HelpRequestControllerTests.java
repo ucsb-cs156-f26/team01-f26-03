@@ -17,6 +17,7 @@ import edu.ucsb.cs156.example.repositories.UserRepository;
 import edu.ucsb.cs156.example.testconfig.TestConfig;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -176,5 +177,56 @@ public class HelpRequestControllerTests extends ControllerTestCase {
 
     verify(helpRequestRepository).save(eq(incoming));
     assertEquals(mapper.writeValueAsString(saved), response.getResponse().getContentAsString());
+  }
+
+  @Test
+  public void logged_out_users_cannot_get_by_id() throws Exception {
+    mockMvc.perform(get("/api/HelpRequest").param("id", "7")).andExpect(status().isForbidden());
+
+    verifyNoInteractions(helpRequestRepository);
+  }
+
+  @WithMockUser(roles = {"USER"})
+  @Test
+  public void logged_in_users_can_get_existing_help_request() throws Exception {
+    HelpRequest expected =
+        HelpRequest.builder()
+            .id(7L)
+            .requesterEmail("ckohlbrecher@ucsb.edu")
+            .teamId("f26-03")
+            .tableOrBreakoutRoom("Table 7")
+            .requestTime(LocalDateTime.parse("2026-10-20T11:30:00"))
+            .explanation("Need help with Swagger")
+            .solved(true)
+            .build();
+
+    when(helpRequestRepository.findById(eq(7L))).thenReturn(Optional.of(expected));
+
+    MvcResult response =
+        mockMvc
+            .perform(get("/api/HelpRequest").param("id", "7"))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    verify(helpRequestRepository).findById(eq(7L));
+    assertEquals(mapper.writeValueAsString(expected), response.getResponse().getContentAsString());
+  }
+
+  @WithMockUser(roles = {"USER"})
+  @Test
+  public void missing_help_request_returns_not_found() throws Exception {
+    when(helpRequestRepository.findById(eq(123L))).thenReturn(Optional.empty());
+
+    MvcResult response =
+        mockMvc
+            .perform(get("/api/HelpRequest").param("id", "123"))
+            .andExpect(status().isNotFound())
+            .andReturn();
+
+    verify(helpRequestRepository).findById(eq(123L));
+
+    var json = responseToJson(response);
+    assertEquals("EntityNotFoundException", json.get("type"));
+    assertEquals("HelpRequest with id 123 not found", json.get("message"));
   }
 }
