@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@Entity(name = "MenuItemReview")
+@Entity(name = "menuitemreview")
 public class MenuItemReview {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
