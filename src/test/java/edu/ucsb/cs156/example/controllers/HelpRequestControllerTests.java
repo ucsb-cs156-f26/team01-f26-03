@@ -1,0 +1,180 @@
+package edu.ucsb.cs156.example.controllers;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import edu.ucsb.cs156.example.ControllerTestCase;
+import edu.ucsb.cs156.example.entities.HelpRequest;
+import edu.ucsb.cs156.example.repositories.HelpRequestRepository;
+import edu.ucsb.cs156.example.repositories.UserRepository;
+import edu.ucsb.cs156.example.testconfig.TestConfig;
+import java.time.LocalDateTime;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MvcResult;
+
+@WebMvcTest(controllers = HelpRequestController.class)
+@Import(TestConfig.class)
+public class HelpRequestControllerTests extends ControllerTestCase {
+
+  @MockitoBean HelpRequestRepository helpRequestRepository;
+
+  @MockitoBean UserRepository userRepository;
+
+  @Test
+  public void logged_out_users_cannot_get_all() throws Exception {
+    mockMvc.perform(get("/api/HelpRequest/all")).andExpect(status().isForbidden());
+
+    verifyNoInteractions(helpRequestRepository);
+  }
+
+  @WithMockUser(roles = {"USER"})
+  @Test
+  public void logged_in_users_can_get_empty_list() throws Exception {
+    when(helpRequestRepository.findAll()).thenReturn(List.of());
+
+    MvcResult response =
+        mockMvc.perform(get("/api/HelpRequest/all")).andExpect(status().isOk()).andReturn();
+
+    verify(helpRequestRepository).findAll();
+    assertEquals("[]", response.getResponse().getContentAsString());
+  }
+
+  @WithMockUser(roles = {"USER"})
+  @Test
+  public void logged_in_users_can_get_all_help_requests() throws Exception {
+    HelpRequest first =
+        HelpRequest.builder()
+            .id(1L)
+            .requesterEmail("first@ucsb.edu")
+            .teamId("f26-03")
+            .tableOrBreakoutRoom("7")
+            .requestTime(LocalDateTime.parse("2026-10-20T11:30:00"))
+            .explanation("Need help with Swagger")
+            .solved(false)
+            .build();
+
+    HelpRequest second =
+        HelpRequest.builder()
+            .id(2L)
+            .requesterEmail("second@ucsb.edu")
+            .teamId("f26-04")
+            .tableOrBreakoutRoom("Room 2")
+            .requestTime(LocalDateTime.parse("2026-10-21T14:15:00"))
+            .explanation("Need help with deployment")
+            .solved(true)
+            .build();
+
+    List<HelpRequest> expectedRequests = List.of(first, second);
+    when(helpRequestRepository.findAll()).thenReturn(expectedRequests);
+
+    MvcResult response =
+        mockMvc.perform(get("/api/HelpRequest/all")).andExpect(status().isOk()).andReturn();
+
+    verify(helpRequestRepository).findAll();
+    assertEquals(
+        mapper.writeValueAsString(expectedRequests), response.getResponse().getContentAsString());
+  }
+
+  @Test
+  public void logged_out_users_cannot_post() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/HelpRequest/post")
+                .param("requesterEmail", "ckohlbrecher@ucsb.edu")
+                .param("teamId", "f26-03")
+                .param("tableOrBreakoutRoom", "7")
+                .param("requestTime", "2026-10-20T11:30:00")
+                .param("explanation", "Need help with Swagger")
+                .param("solved", "false")
+                .with(csrf()))
+        .andExpect(status().isForbidden());
+
+    verifyNoInteractions(helpRequestRepository);
+  }
+
+  @WithMockUser(roles = {"USER"})
+  @Test
+  public void regular_users_cannot_post() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/HelpRequest/post")
+                .param("requesterEmail", "ckohlbrecher@ucsb.edu")
+                .param("teamId", "f26-03")
+                .param("tableOrBreakoutRoom", "7")
+                .param("requestTime", "2026-10-20T11:30:00")
+                .param("explanation", "Need help with Swagger")
+                .param("solved", "false")
+                .with(csrf()))
+        .andExpect(status().isForbidden());
+
+    verifyNoInteractions(helpRequestRepository);
+  }
+
+  @WithMockUser(roles = {"ADMIN", "USER"})
+  @Test
+  public void admin_can_post_unsolved_help_request() throws Exception {
+    checkAdminPost(false);
+  }
+
+  @WithMockUser(roles = {"ADMIN", "USER"})
+  @Test
+  public void admin_can_post_solved_help_request() throws Exception {
+    checkAdminPost(true);
+  }
+
+  private void checkAdminPost(boolean solved) throws Exception {
+    LocalDateTime requestTime = LocalDateTime.parse("2026-10-20T11:30:00");
+
+    HelpRequest incoming =
+        HelpRequest.builder()
+            .requesterEmail("ckohlbrecher@ucsb.edu")
+            .teamId("f26-03")
+            .tableOrBreakoutRoom("7")
+            .requestTime(requestTime)
+            .explanation("Need help with Swagger")
+            .solved(solved)
+            .build();
+
+    HelpRequest saved =
+        HelpRequest.builder()
+            .id(42L)
+            .requesterEmail("ckohlbrecher@ucsb.edu")
+            .teamId("f26-03")
+            .tableOrBreakoutRoom("7")
+            .requestTime(requestTime)
+            .explanation("Need help with Swagger")
+            .solved(solved)
+            .build();
+
+    when(helpRequestRepository.save(eq(incoming))).thenReturn(saved);
+
+    MvcResult response =
+        mockMvc
+            .perform(
+                post("/api/HelpRequest/post")
+                    .param("requesterEmail", "ckohlbrecher@ucsb.edu")
+                    .param("teamId", "f26-03")
+                    .param("tableOrBreakoutRoom", "7")
+                    .param("requestTime", "2026-10-20T11:30:00")
+                    .param("explanation", "Need help with Swagger")
+                    .param("solved", Boolean.toString(solved))
+                    .with(csrf()))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    verify(helpRequestRepository).save(eq(incoming));
+    assertEquals(mapper.writeValueAsString(saved), response.getResponse().getContentAsString());
+  }
+}
