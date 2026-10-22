@@ -16,6 +16,8 @@ import edu.ucsb.cs156.example.repositories.UCSBDiningCommonsMenuItemRepository;
 import edu.ucsb.cs156.example.repositories.UserRepository;
 import edu.ucsb.cs156.example.testconfig.TestConfig;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -137,5 +139,66 @@ public class UCSBDiningCommonsMenuItemControllerTests extends ControllerTestCase
     String actualJson = response.getResponse().getContentAsString();
 
     assertEquals(expectedJson, actualJson);
+  }
+
+  @Test
+  public void logged_out_users_cannot_get_by_id() throws Exception {
+    mockMvc
+        .perform(get("/api/UCSBDiningCommonsMenuItem").param("id", "7"))
+        .andExpect(status().isForbidden());
+  }
+
+  @WithMockUser(roles = {"USER"})
+  @Test
+  public void logged_in_user_can_get_by_id_when_id_exists() throws Exception {
+
+    // Arrange
+    UCSBDiningCommonsMenuItem pizza =
+        UCSBDiningCommonsMenuItem.builder()
+            .id(7L)
+            .diningCommonsCode("ortega")
+            .name("Pizza")
+            .station("Entrees")
+            .build();
+
+    when(ucsbDiningCommonsMenuItemRepository.findById(7L)).thenReturn(Optional.of(pizza));
+
+    // Act
+    MvcResult response =
+        mockMvc
+            .perform(get("/api/UCSBDiningCommonsMenuItem").param("id", "7"))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    // Assert
+    verify(ucsbDiningCommonsMenuItemRepository, times(1)).findById(7L);
+
+    String expectedJson = mapper.writeValueAsString(pizza);
+    String actualJson = response.getResponse().getContentAsString();
+
+    assertEquals(expectedJson, actualJson);
+  }
+
+  @WithMockUser(roles = {"USER"})
+  @Test
+  public void logged_in_user_cannot_get_by_id_when_id_missing() throws Exception {
+
+    // Arrange
+    when(ucsbDiningCommonsMenuItemRepository.findById(7L)).thenReturn(Optional.empty());
+
+    // Act
+    MvcResult response =
+        mockMvc
+            .perform(get("/api/UCSBDiningCommonsMenuItem").param("id", "7"))
+            .andExpect(status().isNotFound())
+            .andReturn();
+
+    // Assert
+    verify(ucsbDiningCommonsMenuItemRepository, times(1)).findById(7L);
+
+    Map<String, Object> json = responseToJson(response);
+
+    assertEquals("EntityNotFoundException", json.get("type"));
+    assertEquals("UCSBDiningCommonsMenuItem with id 7 not found", json.get("message"));
   }
 }
