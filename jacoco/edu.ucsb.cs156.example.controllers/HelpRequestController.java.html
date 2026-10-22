@@ -13,6 +13,8 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,8 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = &quot;HelpRequest&quot;)
 @RequestMapping(&quot;/api/HelpRequest&quot;)
 @RestController
-<span class="fc" id="L24">@Slf4j</span>
-<span class="fc" id="L25">public class HelpRequestController extends ApiController {</span>
+<span class="fc" id="L26">@Slf4j</span>
+<span class="fc" id="L27">public class HelpRequestController extends ApiController {</span>
 
   @Autowired HelpRequestRepository helpRequestRepository;
 
@@ -31,7 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
   @PreAuthorize(&quot;hasRole('ROLE_USER')&quot;)
   @GetMapping(&quot;/all&quot;)
   public Iterable&lt;HelpRequest&gt; allHelpRequests() {
-<span class="fc" id="L34">    return helpRequestRepository.findAll();</span>
+<span class="fc" id="L36">    return helpRequestRepository.findAll();</span>
   }
 
   /** Create a new help request. */
@@ -52,15 +54,15 @@ import org.springframework.web.bind.annotation.RestController;
       @Parameter(description = &quot;Whether the request has been resolved&quot;) @RequestParam
           boolean solved) {
 
-<span class="fc" id="L55">    HelpRequest helpRequest = new HelpRequest();</span>
-<span class="fc" id="L56">    helpRequest.setRequesterEmail(requesterEmail);</span>
-<span class="fc" id="L57">    helpRequest.setTeamId(teamId);</span>
-<span class="fc" id="L58">    helpRequest.setTableOrBreakoutRoom(tableOrBreakoutRoom);</span>
-<span class="fc" id="L59">    helpRequest.setRequestTime(requestTime);</span>
-<span class="fc" id="L60">    helpRequest.setExplanation(explanation);</span>
-<span class="fc" id="L61">    helpRequest.setSolved(solved);</span>
+<span class="fc" id="L57">    HelpRequest helpRequest = new HelpRequest();</span>
+<span class="fc" id="L58">    helpRequest.setRequesterEmail(requesterEmail);</span>
+<span class="fc" id="L59">    helpRequest.setTeamId(teamId);</span>
+<span class="fc" id="L60">    helpRequest.setTableOrBreakoutRoom(tableOrBreakoutRoom);</span>
+<span class="fc" id="L61">    helpRequest.setRequestTime(requestTime);</span>
+<span class="fc" id="L62">    helpRequest.setExplanation(explanation);</span>
+<span class="fc" id="L63">    helpRequest.setSolved(solved);</span>
 
-<span class="fc" id="L63">    return helpRequestRepository.save(helpRequest);</span>
+<span class="fc" id="L65">    return helpRequestRepository.save(helpRequest);</span>
   }
 
   /**
@@ -75,9 +77,44 @@ import org.springframework.web.bind.annotation.RestController;
   public HelpRequest getById(
       @Parameter(name = &quot;id&quot;, description = &quot;ID of the help request&quot;) @RequestParam Long id) {
 
-<span class="fc" id="L78">    return helpRequestRepository</span>
-<span class="fc" id="L79">        .findById(id)</span>
-<span class="fc" id="L80">        .orElseThrow(() -&gt; new EntityNotFoundException(HelpRequest.class, id));</span>
+<span class="fc" id="L80">    return helpRequestRepository</span>
+<span class="fc" id="L81">        .findById(id)</span>
+<span class="fc" id="L82">        .orElseThrow(() -&gt; new EntityNotFoundException(HelpRequest.class, id));</span>
+  }
+
+  /**
+   * Update an existing help request.
+   *
+   * @param id the id of the help request to update
+   * @param incoming the new field values
+   * @return the updated help request
+   */
+  @Operation(
+      summary = &quot;Update a single help request&quot;,
+      description =
+          &quot;Finds a help request using the query parameter id and replaces all six &quot;
+              + &quot;editable fields with the JSON request body values. &quot;
+              + &quot;The existing id is preserved. Requires ADMIN role. &quot;
+              + &quot;Returns 404 if the help request does not exist.&quot;)
+  @PreAuthorize(&quot;hasRole('ROLE_ADMIN')&quot;)
+  @PutMapping(&quot;&quot;)
+  public HelpRequest updateHelpRequest(
+      @Parameter(description = &quot;ID of the help request to update&quot;) @RequestParam Long id,
+      @RequestBody HelpRequest incoming) {
+
+<span class="fc" id="L105">    HelpRequest existing =</span>
+        helpRequestRepository
+<span class="fc" id="L107">            .findById(id)</span>
+<span class="fc" id="L108">            .orElseThrow(() -&gt; new EntityNotFoundException(HelpRequest.class, id));</span>
+
+<span class="fc" id="L110">    existing.setRequesterEmail(incoming.getRequesterEmail());</span>
+<span class="fc" id="L111">    existing.setTeamId(incoming.getTeamId());</span>
+<span class="fc" id="L112">    existing.setTableOrBreakoutRoom(incoming.getTableOrBreakoutRoom());</span>
+<span class="fc" id="L113">    existing.setRequestTime(incoming.getRequestTime());</span>
+<span class="fc" id="L114">    existing.setExplanation(incoming.getExplanation());</span>
+<span class="fc" id="L115">    existing.setSolved(incoming.getSolved());</span>
+
+<span class="fc" id="L117">    return helpRequestRepository.save(existing);</span>
   }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
