@@ -23,4 +23,4 @@ repo_name: "TBD"
 repo: ucsb-cs156-f26/team01-f26-03
 owner: ucsb-cs156-f26
 repo_name: team01-f26-03
-pull_requests: [{"author":{"id":"U_kgDOB-xs_g","is_bot":false,"login":"codykohlbrecher","name":"Cody"},"headRefName":"ck-help-request-delete","number":70,"title":"Add HelpRequest DELETE endpoint and tests","url":"https://github.com/ucsb-cs156-f26/team01-f26-03/pull/70"}]
+pull_requests: []
