@@ -4,12 +4,12 @@ Instructions: <https://ucsb-cs156.github.io/s26/lab/team01.html>
 
 
 
+
 Deployments:
 
 * Prod: <https://team01.dokku-03.cs.ucsb.edu/>
 * QA: <https://team01-qa.dokku-03.cs.ucsb.edu/>
 
-TODO: Fill in this table with correct information. 
 
 | Table                     | Name         |   Github Id   |
 |---------------------------|--------------|---------------|
