@@ -14,6 +14,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -79,6 +81,41 @@ public class HelpRequestController extends ApiController {
     return helpRequestRepository
         .findById(id)
         .orElseThrow(() -> new EntityNotFoundException(HelpRequest.class, id));
+  }
+
+  /**
+   * Update an existing help request.
+   *
+   * @param id the id of the help request to update
+   * @param incoming the new field values
+   * @return the updated help request
+   */
+  @Operation(
+      summary = "Update a single help request",
+      description =
+          "Finds a help request using the query parameter id and replaces all six "
+              + "editable fields with the JSON request body values. "
+              + "The existing id is preserved. Requires ADMIN role. "
+              + "Returns 404 if the help request does not exist.")
+  @PreAuthorize("hasRole('ROLE_ADMIN')")
+  @PutMapping("")
+  public HelpRequest updateHelpRequest(
+      @Parameter(description = "ID of the help request to update") @RequestParam Long id,
+      @RequestBody HelpRequest incoming) {
+
+    HelpRequest existing =
+        helpRequestRepository
+            .findById(id)
+            .orElseThrow(() -> new EntityNotFoundException(HelpRequest.class, id));
+
+    existing.setRequesterEmail(incoming.getRequesterEmail());
+    existing.setTeamId(incoming.getTeamId());
+    existing.setTableOrBreakoutRoom(incoming.getTableOrBreakoutRoom());
+    existing.setRequestTime(incoming.getRequestTime());
+    existing.setExplanation(incoming.getExplanation());
+    existing.setSolved(incoming.getSolved());
+
+    return helpRequestRepository.save(existing);
   }
 
   /**

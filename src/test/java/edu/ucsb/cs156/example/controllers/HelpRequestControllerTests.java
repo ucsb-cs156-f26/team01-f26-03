@@ -1,7 +1,9 @@
 package edu.ucsb.cs156.example.controllers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -10,6 +12,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import edu.ucsb.cs156.example.ControllerTestCase;
@@ -23,6 +26,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MvcResult;
@@ -226,6 +230,125 @@ public class HelpRequestControllerTests extends ControllerTestCase {
             .andReturn();
 
     verify(helpRequestRepository).findById(eq(123L));
+
+    var json = responseToJson(response);
+    assertEquals("EntityNotFoundException", json.get("type"));
+    assertEquals("HelpRequest with id 123 not found", json.get("message"));
+  }
+
+  @Test
+  public void logged_out_users_cannot_put() throws Exception {
+    mockMvc
+        .perform(
+            put("/api/HelpRequest")
+                .param("id", "7")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}")
+                .with(csrf()))
+        .andExpect(status().isForbidden());
+
+    verifyNoInteractions(helpRequestRepository);
+  }
+
+  @WithMockUser(roles = {"USER"})
+  @Test
+  public void regular_users_cannot_put() throws Exception {
+    mockMvc
+        .perform(
+            put("/api/HelpRequest")
+                .param("id", "7")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}")
+                .with(csrf()))
+        .andExpect(status().isForbidden());
+
+    verifyNoInteractions(helpRequestRepository);
+  }
+
+  @WithMockUser(roles = {"ADMIN", "USER"})
+  @Test
+  public void admin_can_update_help_request_to_solved() throws Exception {
+    checkAdminPut(true);
+  }
+
+  @WithMockUser(roles = {"ADMIN", "USER"})
+  @Test
+  public void admin_can_update_help_request_to_unsolved() throws Exception {
+    checkAdminPut(false);
+  }
+
+  private void checkAdminPut(boolean solved) throws Exception {
+    HelpRequest original =
+        HelpRequest.builder()
+            .id(7L)
+            .requesterEmail("original@ucsb.edu")
+            .teamId("f26-01")
+            .tableOrBreakoutRoom("Table 1")
+            .requestTime(LocalDateTime.parse("2026-10-19T10:00:00"))
+            .explanation("Original explanation")
+            .solved(!solved)
+            .build();
+
+    HelpRequest incoming =
+        HelpRequest.builder()
+            .id(999L)
+            .requesterEmail("updated@ucsb.edu")
+            .teamId("f26-03")
+            .tableOrBreakoutRoom("Table 7")
+            .requestTime(LocalDateTime.parse("2026-10-20T11:30:00"))
+            .explanation("Updated explanation")
+            .solved(solved)
+            .build();
+
+    HelpRequest expected =
+        HelpRequest.builder()
+            .id(7L)
+            .requesterEmail("updated@ucsb.edu")
+            .teamId("f26-03")
+            .tableOrBreakoutRoom("Table 7")
+            .requestTime(LocalDateTime.parse("2026-10-20T11:30:00"))
+            .explanation("Updated explanation")
+            .solved(solved)
+            .build();
+
+    when(helpRequestRepository.findById(eq(7L))).thenReturn(Optional.of(original));
+    when(helpRequestRepository.save(eq(expected))).thenReturn(expected);
+
+    MvcResult response =
+        mockMvc
+            .perform(
+                put("/api/HelpRequest")
+                    .param("id", "7")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(mapper.writeValueAsString(incoming))
+                    .with(csrf()))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    verify(helpRequestRepository).findById(eq(7L));
+    verify(helpRequestRepository).save(eq(expected));
+    assertEquals(expected, original);
+    assertEquals(mapper.writeValueAsString(expected), response.getResponse().getContentAsString());
+  }
+
+  @WithMockUser(roles = {"ADMIN", "USER"})
+  @Test
+  public void admin_put_missing_help_request_returns_not_found() throws Exception {
+    when(helpRequestRepository.findById(eq(123L))).thenReturn(Optional.empty());
+
+    MvcResult response =
+        mockMvc
+            .perform(
+                put("/api/HelpRequest")
+                    .param("id", "123")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{}")
+                    .with(csrf()))
+            .andExpect(status().isNotFound())
+            .andReturn();
+
+    verify(helpRequestRepository).findById(eq(123L));
+    verify(helpRequestRepository, never()).save(any(HelpRequest.class));
 
     var json = responseToJson(response);
     assertEquals("EntityNotFoundException", json.get("type"));
