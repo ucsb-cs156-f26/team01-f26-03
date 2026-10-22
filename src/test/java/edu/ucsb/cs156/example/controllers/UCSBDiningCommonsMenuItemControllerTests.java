@@ -6,6 +6,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -295,6 +296,65 @@ public class UCSBDiningCommonsMenuItemControllerTests extends ControllerTestCase
     Map<String, Object> json = responseToJson(response);
 
     assertEquals("EntityNotFoundException", json.get("type"));
+    assertEquals("UCSBDiningCommonsMenuItem with id 99999 not found", json.get("message"));
+  }
+
+  @WithMockUser(roles = {"ADMIN"})
+  @Test
+  public void admin_can_delete_existing_menu_item() throws Exception {
+
+    // Arrange
+    UCSBDiningCommonsMenuItem item =
+        UCSBDiningCommonsMenuItem.builder()
+            .id(1L)
+            .diningCommonsCode("ortega")
+            .name("DeleteTest")
+            .station("Test Station")
+            .build();
+
+    when(ucsbDiningCommonsMenuItemRepository.findById(1L)).thenReturn(Optional.of(item));
+
+    // Act
+    MvcResult response =
+        mockMvc
+            .perform(delete("/api/UCSBDiningCommonsMenuItem").param("id", "1").with(csrf()))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    // Assert
+    verify(ucsbDiningCommonsMenuItemRepository, times(1)).findById(1L);
+
+    verify(ucsbDiningCommonsMenuItemRepository, times(1)).delete(item);
+
+    Map<String, Object> json = responseToJson(response);
+
+    assertEquals("UCSBDiningCommonsMenuItem with id 1 deleted", json.get("message"));
+  }
+
+  @WithMockUser(roles = {"ADMIN"})
+  @Test
+  public void admin_cannot_delete_nonexistent_menu_item() throws Exception {
+
+    // Arrange
+    when(ucsbDiningCommonsMenuItemRepository.findById(99999L)).thenReturn(Optional.empty());
+
+    // Act
+    MvcResult response =
+        mockMvc
+            .perform(delete("/api/UCSBDiningCommonsMenuItem").param("id", "99999").with(csrf()))
+            .andExpect(status().isNotFound())
+            .andReturn();
+
+    // Assert
+    verify(ucsbDiningCommonsMenuItemRepository, times(1)).findById(99999L);
+
+    verify(ucsbDiningCommonsMenuItemRepository, times(0))
+        .delete(any(UCSBDiningCommonsMenuItem.class));
+
+    Map<String, Object> json = responseToJson(response);
+
+    assertEquals("EntityNotFoundException", json.get("type"));
+
     assertEquals("UCSBDiningCommonsMenuItem with id 99999 not found", json.get("message"));
   }
 }
