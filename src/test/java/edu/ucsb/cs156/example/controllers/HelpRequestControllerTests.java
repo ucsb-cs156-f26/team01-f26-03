@@ -4,8 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -224,6 +226,74 @@ public class HelpRequestControllerTests extends ControllerTestCase {
             .andReturn();
 
     verify(helpRequestRepository).findById(eq(123L));
+
+    var json = responseToJson(response);
+    assertEquals("EntityNotFoundException", json.get("type"));
+    assertEquals("HelpRequest with id 123 not found", json.get("message"));
+  }
+
+  @Test
+  public void logged_out_users_cannot_delete() throws Exception {
+    mockMvc
+        .perform(delete("/api/HelpRequest").param("id", "7").with(csrf()))
+        .andExpect(status().isForbidden());
+
+    verifyNoInteractions(helpRequestRepository);
+  }
+
+  @WithMockUser(roles = {"USER"})
+  @Test
+  public void regular_users_cannot_delete() throws Exception {
+    mockMvc
+        .perform(delete("/api/HelpRequest").param("id", "7").with(csrf()))
+        .andExpect(status().isForbidden());
+
+    verifyNoInteractions(helpRequestRepository);
+  }
+
+  @WithMockUser(roles = {"ADMIN", "USER"})
+  @Test
+  public void admin_can_delete_existing_help_request() throws Exception {
+    HelpRequest helpRequest =
+        HelpRequest.builder()
+            .id(7L)
+            .requesterEmail("ckohlbrecher@ucsb.edu")
+            .teamId("f26-03")
+            .tableOrBreakoutRoom("Table 7")
+            .requestTime(LocalDateTime.parse("2026-10-20T11:30:00"))
+            .explanation("Need help with Swagger")
+            .solved(false)
+            .build();
+
+    when(helpRequestRepository.findById(eq(7L))).thenReturn(Optional.of(helpRequest));
+
+    MvcResult response =
+        mockMvc
+            .perform(delete("/api/HelpRequest").param("id", "7").with(csrf()))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    verify(helpRequestRepository).findById(eq(7L));
+    verify(helpRequestRepository).delete(eq(helpRequest));
+    verifyNoMoreInteractions(helpRequestRepository);
+
+    var json = responseToJson(response);
+    assertEquals("HelpRequest with id 7 deleted", json.get("message"));
+  }
+
+  @WithMockUser(roles = {"ADMIN", "USER"})
+  @Test
+  public void admin_delete_missing_help_request_returns_not_found() throws Exception {
+    when(helpRequestRepository.findById(eq(123L))).thenReturn(Optional.empty());
+
+    MvcResult response =
+        mockMvc
+            .perform(delete("/api/HelpRequest").param("id", "123").with(csrf()))
+            .andExpect(status().isNotFound())
+            .andReturn();
+
+    verify(helpRequestRepository).findById(eq(123L));
+    verifyNoMoreInteractions(helpRequestRepository);
 
     var json = responseToJson(response);
     assertEquals("EntityNotFoundException", json.get("type"));
